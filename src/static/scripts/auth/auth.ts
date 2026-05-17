@@ -1,6 +1,8 @@
 import {getImplicitGrant, getRefreshAccessToken} from "../api/redditAuthApi";
 import Ph_Toast, {Level} from "../components/misc/toast/toast";
+import Ph_AnonymousAccessInfo from "../components/photon/anonymousAccessInfo/anonymousAccessInfo";
 import Ph_ForcedLogoutInfo from "../components/photon/forcedLogoutInfo/forcedLogoutInfo";
+import { guestUserName } from "../multiUser/userData";
 import Users from "../multiUser/userManagement";
 import { appId } from "../utils/consts";
 
@@ -12,14 +14,14 @@ export async function checkTokenRefresh(): Promise<boolean> {
 	await Users.current.lockAuthData();
 	if (!hasTokenExpired()) {
 		Users.current.unlockAuthData();
-		return;
+		return true;
 	}
 
 	let result: boolean;
 	if (Users.current.d.auth.isLoggedIn)
 		result = await refreshAccessToken();
 	else
-		result = await implicitGrant();
+		result = true /*await implicitGrant()*/;
 	Users.current.unlockAuthData();
 	return result;
 }
@@ -38,25 +40,27 @@ export async function checkAuthOnPageLoad(): Promise<AuthState> {
 				// before returning AuthState.loggedIn verifyTokenWorks() must somewhere be called
 				if (hasTokenExpired() && !await refreshAccessToken()) {
 					if (!await verifyTokenWorks()) {
-						authError("Failed to refresh authentication! If this is breaking the website, log out & reload?");
+						// authError("Failed to refresh authentication! If this is breaking the website, log out & reload?");
+						await switchToGuest();
+						return AuthState.implicitGrant;
 					}
 				} else if (!await verifyTokenWorks() && !await refreshAccessToken()) {
 					authError("Invalid authentication! If this is breaking the website, log out & reload?");
 				}
 				return AuthState.loggedIn;
 			} else {
-				if (hasTokenExpired() && !await implicitGrant() || !await verifyTokenWorks() && !await implicitGrant()) {
-					authError("Failed to get authentication! Do you want to clear data & reload?");
-				}
+				// if (hasTokenExpired() && !await implicitGrant() || !await verifyTokenWorks() && !await implicitGrant()) {
+				// 	authError("Failed to get authentication! Do you want to clear data & reload?");
+				// }
 				return AuthState.implicitGrant;
 			}
 		}
 		// no usable auth data
 		else {
 			await Users.current.set(["auth", "isLoggedIn"], false);
-			if (!await implicitGrant()) {
-				authError("Failed to get authentication! Do you want to clear data & reload?");
-			}
+			// if (!await implicitGrant()) {
+			// 	authError("Failed to get authentication! Do you want to clear data & reload?");
+			// }
 			return AuthState.implicitGrant;
 		}
 	}
@@ -73,6 +77,11 @@ export async function checkAuthOnPageLoad(): Promise<AuthState> {
 
 function authError(msg: string) {
 	new Ph_Toast(Level.warning, msg, { onConfirm: () => Users.remove(Users.current) });
+}
+
+async function switchToGuest() {
+	await Users.switchUser(Users.all.find(user => user.isGuest) || Users.all[0]);
+	Ph_AnonymousAccessInfo.show();
 }
 
 async function implicitGrant(): Promise<boolean> {
@@ -127,10 +136,10 @@ export function getAppId(): string {
 
 export async function resetAuthData(reloadAndShowLogin: boolean): Promise<void> {
 	await Users.resetAll();
-	if (!await implicitGrant() || !await verifyTokenWorks()) {
-		new Ph_Toast(Level.error, "Failed to authenticate with reddit");
-		return;
-	}
+	// if (!await implicitGrant() || !await verifyTokenWorks()) {
+	// 	new Ph_Toast(Level.error, "Failed to authenticate with reddit");
+	// 	return;
+	// }
 	if (reloadAndShowLogin) {
 		location.hash = "#showLogin";
 		location.reload();

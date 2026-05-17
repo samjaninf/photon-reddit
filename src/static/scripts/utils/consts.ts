@@ -1,8 +1,9 @@
 // @ts-ignore
-import { APP_ID, REDIRECT_URI } from "env";
+import { APP_ID, REDIRECT_URI, PROXY_URI } from "env";
 
 export const appId = APP_ID;
 export const redirectURI = REDIRECT_URI;
+export const proxyURI = PROXY_URI;
 export const tokenDuration = "permanent";
 export const scope = ["account", "creddits", "edit", "flair", "history", "identity", "livemanage", "modconfig", "modcontributors", "modflair", "modlog", "modmail", "modothers", "modposts", "modself", "modtraffic", "modwiki", "mysubreddits", "privatemessages", "read", "report", "save", "structuredstyles", "submit", "subscribe", "vote", "wikiedit", "wikiread"];
 export const loginSubredditName =  "photon_reddit";

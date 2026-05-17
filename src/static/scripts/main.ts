@@ -65,7 +65,8 @@ async function init(): Promise<void> {
 			});
 	}
 	else {
-		$css(".loginButton")[0].hidden = false;
+		// $css(".loginButton")[0].hidden = false;
+		$css(".loginButton")[0].hidden = true;
 		if (location.hash === "#showLogin") {
 			location.hash = "";
 			initiateLogin();
@@ -87,7 +88,7 @@ async function init(): Promise<void> {
 	if (Users.global.d.isFirstTimeVisit)
 		await Users.global.set(["isFirstTimeVisit"], false);
 
-	Ph_Tutorial.checkForTutorial();
+	// Ph_Tutorial.checkForTutorial();
 
 	console.log("Photon is ready");
 }

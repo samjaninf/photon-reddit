@@ -7,8 +7,8 @@ import { typecheckPlugin } from "@jgoz/esbuild-plugin-typecheck";
 const isWatchMode = process.argv.includes("watch") || process.argv.includes("-w") || process.argv.includes("--watch");
 
 dotenv.config();
-const requiredEnvVars = ["APP_ID", "REDIRECT_URI"];
-const missingEnvVars = requiredEnvVars.filter((envVar) => !process.env[envVar]);
+const requiredEnvVars = ["APP_ID", "REDIRECT_URI", "PROXY_URI"];
+const missingEnvVars = requiredEnvVars.filter((envVar) => !(envVar in process.env));
 if (missingEnvVars.length > 0) {
 	throw new Error(`Missing environment variables: ${missingEnvVars.join(", ")}`);
 }

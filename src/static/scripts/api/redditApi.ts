@@ -20,6 +20,7 @@ import {
 import {isObjectEmpty, randomString, splitPathQuery, strToNumNonNan, throttle} from "../utils/utils";
 import {SortPostsOrder, UserSection} from "../types/misc";
 import {onApiUsage} from "./redditApiUsageTracking";
+import { proxyURI } from "../utils/consts";
 
 /**
  * Use this to make requests to reddit
@@ -33,6 +34,10 @@ export async function redditApiRequest(pathAndQuery, params: string[][] | any, r
 	if (requiresLogin && !Users.current.d.auth.isLoggedIn) {
 		new Ph_Toast(Level.error, "Not logged in! Do you want to log in with Reddit?", { onConfirm: () => initiateLogin(), groupId: "not logged in" });
 		throw "This feature requires to be logged in";
+	}
+
+	if (!Users.current.d.auth.isLoggedIn) {
+		return await proxiedRedditApiRequest(pathAndQuery, params, options);
 	}
 
 	return await oauth2Request(pathAndQuery, params, options);
@@ -85,16 +90,74 @@ export function getAuthHeader(): string {
 	return `Bearer ${ Users.current.d.auth.accessToken }`;
 }
 
+type RedditGetRequest = {
+	method: "GET";
+	url: string;
+};
+
+type RedditHeadRequest = {
+	method: "HEAD";
+	url: string;
+};
+
+async function proxiedRedditApiRequest(pathAndQuery: string, params: string[][] | any, options: RequestInit) {
+	pathAndQuery = fixUrl(pathAndQuery);
+	const [path, query] = splitPathQuery(pathAndQuery);
+	const fetchOptions: RequestInit = {
+		method: "POST",
+	};
+	
+	const parameters = new URLSearchParams(query);
+	for (const param of params)
+		parameters.append(param[0], param[1]);
+	parameters.append("raw_json", "1");
+	if (path.toLowerCase().startsWith("/r/popular") || /^\/?([#?].*)?$/.test(path))
+		parameters.append("geo_filter", "GLOBAL");
+	const payload: RedditGetRequest = {
+		method: "GET",
+		url: path + "?" + parameters.toString()
+	};
+	fetchOptions.body = JSON.stringify(payload);
+	const response = await fetch(proxyURI + "/execute", fetchOptions);
+	const text = await response.text();
+	const result = JSON.parse(text);
+	if (!result.ok) {
+		return { error: result.message || "Unknown error" };
+	}
+	return result.data;
+}
+
+export async function proxiedRedditHeadRequest(url: string): Promise<string> {
+	const fetchOptions: RequestInit = {
+		method: "POST",
+	};
+	const payload: RedditHeadRequest = {
+		method: "HEAD",
+		url
+	};
+	fetchOptions.body = JSON.stringify(payload);
+	const response = await fetch(proxyURI + "/execute", fetchOptions);
+	if (!response.ok) {
+		throw new Error(`Proxy request failed with status ${response.status}`);
+	}
+	const result = await response.json();
+	if (!result.ok) {
+		throw new Error(result.message || "Unknown error");
+	}
+	return result.data;
+}
+
 function fixUrl(url: string) {
 	url = url.toLowerCase();
 	url = url.replace(/^\/u\//, "/user/");													// /u/... --> /user/...
 	url = url.replace(/(\/(u|user)\/[^/]+\/)posts\/?/, "$1submitted/")						// /user/.../posts --> /user/.../submitted
 	url = url.replace(/#[^?]*/, "");														// ...#...?... --> ...?...
-	url = url.replace(/(^\/\w+\/[^/]+)\/w(?=([#?\/]).*|$)/, "$1/wiki");					// /.../.../w --> /.../.../wiki
-	url = url.replace(/(^\/r\/[^/]+\/wiki)\/?(?=([?|#].*)?$)/, "$1/index");				// /r/.../wiki --> /r/.../wiki/index
+	url = url.replace(/(^\/\w+\/[^/]+)\/w(?=([#?\/]).*|$)/, "$1/wiki");						// /.../.../w --> /.../.../wiki
+	url = url.replace(/(^\/r\/[^/]+\/wiki)\/?(?=([?|#].*)?$)/, "$1/index");					// /r/.../wiki --> /r/.../wiki/index
 	url = url.replace(/(^\/\w+\/[^/]+\/wiki(?:[^#?]*)?)\/(?=([#?\/]).*|$)/, "$1");			// /.../.../wiki/.../ --> /.../.../wiki/... (with / causes redirect and removes params)
 	url = url.replace(/^\/gallery(?=\/\w+)/, "/comments");									// /gallery/... --> /comments/...
-	if (new RegExp(`^/(u|user)/${Users.current.name}/m/([^/]+)`, "i").test(url))					// private multireddits have CORS problems
+	url = url.replace(/^\/r\/([^/?#]+)(?=\/?([#?].*)?$)/, "/r/$1/hot");						// /r/subreddit --> /r/subreddit/hot
+	if (new RegExp(`^/(u|user)/${Users.current.name}/m/([^/]+)`, "i").test(url))			// private multireddits have CORS problems
 		url = url.replace(/^\/user\/[^/]+\/m\//, "/me/m/")									// /user/thisUser/m/... --> /me/m/...
 	if (Users.current.d.auth.isLoggedIn && (url === "" || url === "/") && Users.global.d.photonSettings.defaultFrontpageSort)
 		url = `/${Users.global.d.photonSettings.defaultFrontpageSort}`
@@ -227,7 +290,8 @@ export async function searchSubreddits(query: string, limit = 5): Promise<Reddit
 	return await redditApiRequest("/api/subreddit_autocomplete_v2", [
 		["query", query],
 		["limit", limit.toString()],
-		["include_profiles", "false"]
+		["include_profiles", "false"],
+		["include_over_18", "true"]
 	], false);
 }
 

@@ -1,6 +1,17 @@
-export const photonVersion = "1.4.3";		/// <change version script>
+export const photonVersion = "1.5.1";		/// <change version script>
 
 export const photonChangelog = {
+	"1.5.1": {
+		"Fixed": [
+			"Fixed loading of archived comments",
+		]
+	},
+	"1.5.0": {
+		"Fixed": [
+			"Putting photon-reddit on life support, since reddit is making it difficult to use the official API",
+			"From now on only anonymous access is officially supported."
+		]
+	},
 	"1.4.3": {
 		"Fixed": [
 			"Fixed short links redirects (/r/.../s/...) not working",

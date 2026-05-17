@@ -29,7 +29,8 @@ export async function getCommentTreeFromArchive(commentData: RedditCommentData):
 	flattenCommentTree(tree, flatCommentsMap);
 	const flatComments = Object.values(flatCommentsMap);
 	markedDeletedComments(flatComments);
-	const commentFullNames = flatComments.map(comment => comment.name);
+	const commentFullNames = flatComments.map(comment => comment.name)
+		.slice(0, 10);
 	while (commentFullNames.length > 0) {
 		const fullNames = commentFullNames.splice(0, 100);
 		const response = await redditInfo({ fullNames }) as RedditListingObj<RedditCommentObj>;
