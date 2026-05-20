@@ -111,7 +111,7 @@ async function proxiedRedditApiRequest(pathAndQuery: string, params: string[][] 
 	for (const param of params)
 		parameters.append(param[0], param[1]);
 	parameters.append("raw_json", "1");
-	if (path.toLowerCase().startsWith("/r/popular") || /^\/?([#?].*)?$/.test(path))
+	if ((path.toLowerCase().startsWith("/r/popular") || /^\/?([#?].*)?$/.test(path)) && !parameters.has("geo_filter"))
 		parameters.append("geo_filter", "GLOBAL");
 	const payload: RedditGetRequest = {
 		method: "GET",
@@ -161,6 +161,13 @@ function fixUrl(url: string) {
 		url = url.replace(/^\/user\/[^/]+\/m\//, "/me/m/")									// /user/thisUser/m/... --> /me/m/...
 	if (Users.current.d.auth.isLoggedIn && (url === "" || url === "/") && Users.global.d.photonSettings.defaultFrontpageSort)
 		url = `/${Users.global.d.photonSettings.defaultFrontpageSort}`
+	if (!Users.current.d.auth.isLoggedIn && /^\/?((best|hot|new|top|rising|controversial|gilded)?\/?)([?#].*)?$/.test(url)) {
+		const subs = Users.current.subreddits.rawData;
+		if (subs.length > 0) {
+			const sort = url.match(/\/(\w+)/)?.[1] ?? Users.global.d.photonSettings.defaultFrontpageSort ?? "hot";
+			url = `/r/${subs.slice(0, 100).map(s => s.data.display_name).join("+")}/${sort}`;
+		}
+	}
 	return url;
 }
 
@@ -368,6 +375,8 @@ export async function getSubRules(subPath: string) {
 }
 
 export async function getSubModerators(subPath: string) {
+	if (!Users.current.d.auth.isLoggedIn)
+		return { data: { children: [] } };
 	return await redditApiRequest(`${subPath}/about/moderators`, [], false)
 }
 

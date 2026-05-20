@@ -1,6 +1,7 @@
 import {getMySubs, redditInfo, subscribe} from "../api/redditApi";
 import Ph_Toast, {Level} from "../components/misc/toast/toast";
 import {RedditSubredditObj} from "../types/redditTypes";
+import Users from "../multiUser/userManagement";
 import {UserSubscriptions} from "./UserSubscriptions";
 import {stringSortComparer} from "./utils";
 
@@ -16,7 +17,7 @@ export class SubredditManager extends UserSubscriptions<RedditSubredditObj, Subs
 		let cached = this.loadUserContentFromLs("subs");
 		if (cached && "error" in cached)
 			cached = null
-		if (cached === null)
+		if (cached === null && !Users.current.isGuest)
 			await this.fetchSubreddits();
 	}
 
@@ -43,10 +44,12 @@ export class SubredditManager extends UserSubscriptions<RedditSubredditObj, Subs
 	}
 
 	/** @return success */
-	async setIsSubscribed(subredditFullName: string, isSubscribed): Promise<boolean> {
-		const r = await subscribe(subredditFullName, isSubscribed);
-		if (!r)
-			return false;
+	async setIsSubscribed(subredditFullName: string, isSubscribed: boolean): Promise<boolean> {
+		if (!Users.current.isGuest) {
+			const r = await subscribe(subredditFullName, isSubscribed);
+			if (!r)
+				return false;
+		}
 		if (isSubscribed) {
 			const subInfo = await redditInfo({ fullName: subredditFullName }) as RedditSubredditObj;
 			if (!subInfo)
@@ -64,7 +67,7 @@ export class SubredditManager extends UserSubscriptions<RedditSubredditObj, Subs
 			this.userContent.splice(currentSubIndex, 1);
 			this.dispatchChange({ subreddit: subredditData, isUserSubscribed: false, index: currentSubIndex });
 		}
-		this.cacheUserContentLs("subs", false);
+		this.cacheUserContentLs("subs", Users.current.isGuest);
 		return true;
 	}
 

@@ -71,6 +71,7 @@ async function init(): Promise<void> {
 			location.hash = "";
 			initiateLogin();
 		}
+		await Users.current.subreddits.load();
 	}
 	setInterval(checkTokenRefresh, 1000 * 30);
 	removeLoadingIcon();
